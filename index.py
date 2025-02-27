@@ -18,7 +18,7 @@ def move_to_section(section_number):
         (3 * section_width // 2, section_height // 2),
         (5 * section_width // 2, section_height // 2),
         (7 * section_width // 2, section_height // 2),
-      23  (section_width // 2, 3 * section_height // 2),
+        (section_width // 2, 3 * section_height // 2),
         (3 * section_width // 2, 3 * section_height // 2),
         (5 * section_width // 2, 3 * section_height // 2),
         (7 * section_width // 2, 3 * section_height // 2)
