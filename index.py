@@ -1,6 +1,7 @@
 import pyautogui
 import keyboard
 import time
+import customtkinter as ctk
 
 def get_combined_screen_size():
     primary_screen = pyautogui.size()
@@ -16,10 +17,10 @@ def move_to_section(section_number):
     positions = [
         (section_width // 2, section_height // 2),
         (3 * section_width // 2, section_height // 2),
-        (5 * section_width // 2, section_height // 2),
-        (7 * section_width // 2, section_height // 2),
         (section_width // 2, 3 * section_height // 2),
         (3 * section_width // 2, 3 * section_height // 2),
+        (5 * section_width // 2, section_height // 2),
+        (7 * section_width // 2, section_height // 2),
         (5 * section_width // 2, 3 * section_height // 2),
         (7 * section_width // 2, 3 * section_height // 2)
     ]
@@ -30,11 +31,100 @@ def move_to_section(section_number):
         pyautogui.click()
 
 def main():
-    print("Press keys 1-8 to move to the corresponding section of the screen.")
-    for i in range(1, 9):
-        keyboard.add_hotkey(str(i), lambda i=i: move_to_section(i))
+    def toggle_group_1():
+        if toggle_var_1.get():
+            for i in [1, 2, 3, 4]:
+                keyboard.add_hotkey(str(i), lambda i=i: move_to_section(i))
+            print("Group 1 shortcuts enabled.")
+        else:
+            for i in [1, 2, 3, 4]:
+                keyboard.remove_hotkey(str(i))
+            print("Group 1 shortcuts disabled.")
+        update_all_groups_toggle()
 
-    print("Press 'esc' to exit.")
+    def toggle_group_2():
+        if toggle_var_2.get():
+            for i in [5, 6, 7, 8]:
+                keyboard.add_hotkey(str(i), lambda i=i: move_to_section(i))
+            print("Group 2 shortcuts enabled.")
+        else:
+            for i in [5, 6, 7, 8]:
+                keyboard.remove_hotkey(str(i))
+            print("Group 2 shortcuts disabled.")
+        update_all_groups_toggle()
+
+    def toggle_all_groups():
+        if toggle_var_all.get():
+            if not toggle_var_1.get():
+                toggle_var_1.set(True)
+                toggle_group_1()
+            if not toggle_var_2.get():
+                toggle_var_2.set(True)
+                toggle_group_2()
+            print("All shortcuts enabled.")
+        else:
+            if toggle_var_1.get():
+                toggle_var_1.set(False)
+                toggle_group_1()
+            if toggle_var_2.get():
+                toggle_var_2.set(False)
+                toggle_group_2()
+            print("All shortcuts disabled.")
+
+    def update_all_groups_toggle():
+        if toggle_var_1.get() and toggle_var_2.get():
+            toggle_var_all.set(True)
+        else:
+            toggle_var_all.set(False)
+
+    app = ctk.CTk()
+    app.title("Screen Section Mover")
+    app.geometry("480x300")
+
+    ctk.set_appearance_mode("dark")
+    ctk.set_default_color_theme("blue")
+
+    toggle_frame = ctk.CTkFrame(app, corner_radius=10)
+    toggle_frame.pack(pady=5, padx=5, fill="x")
+
+    toggle_var_all = ctk.BooleanVar(value=False)
+    toggle_button_all = ctk.CTkSwitch(toggle_frame, text="Enable All Shortcuts", variable=toggle_var_all, command=toggle_all_groups)
+    toggle_button_all.grid(row=0, column=1, pady=5, padx=5, sticky="ew")
+
+    toggle_frame.grid_columnconfigure(0, weight=1)
+    toggle_frame.grid_columnconfigure(2, weight=1)
+
+    main_frame = ctk.CTkFrame(app, corner_radius=10)
+    main_frame.pack(pady=5, padx=5, fill="both", expand=True)
+
+    group_1_frame = ctk.CTkFrame(main_frame, corner_radius=10, fg_color="gray25")
+    group_1_frame.pack(side="left", padx=5, pady=5, fill="both", expand=True)
+
+    group_2_frame = ctk.CTkFrame(main_frame, corner_radius=10, fg_color="gray35")
+    group_2_frame.pack(side="right", padx=5, pady=5, fill="both", expand=True)
+
+    toggle_var_1 = ctk.BooleanVar(value=False)
+    toggle_button_1 = ctk.CTkSwitch(group_1_frame, text="Enable Group 1 Shortcuts", variable=toggle_var_1, command=toggle_group_1)
+    toggle_button_1.grid(row=0, column=0, columnspan=2, pady=5, padx=5, sticky="ew")
+
+    group_1_positions = [(1, 0), (1, 1), (2, 0), (2, 1)]
+    for i, (row, col) in zip([1, 2, 3, 4], group_1_positions):
+        label_text = f"Section {i}"
+        label = ctk.CTkLabel(group_1_frame, text=label_text, width=100, height=50, corner_radius=8, fg_color="gray20", text_color="white", font=("Arial", 14))
+        label.grid(row=row, column=col, padx=5, pady=5)
+
+    toggle_var_2 = ctk.BooleanVar(value=False)
+    toggle_button_2 = ctk.CTkSwitch(group_2_frame, text="Enable Group 2 Shortcuts", variable=toggle_var_2, command=toggle_group_2)
+    toggle_button_2.grid(row=0, column=0, columnspan=2, pady=5, padx=5, sticky="ew")
+
+    group_2_positions = [(1, 0), (1, 1), (2, 0), (2, 1)]
+    for i, (row, col) in zip([5, 6, 7, 8], group_2_positions):
+        label_text = f"Section {i}"
+        label = ctk.CTkLabel(group_2_frame, text=label_text, width=100, height=50, corner_radius=8, fg_color="gray30", text_color="white", font=("Arial", 14))
+        label.grid(row=row, column=col, padx=5, pady=5)
+
+    app.mainloop()
+
     keyboard.wait('esc')
 
 if __name__ == "__main__":
