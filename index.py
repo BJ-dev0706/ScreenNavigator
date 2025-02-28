@@ -53,17 +53,47 @@ def main():
         group_frame = ctk.CTkFrame(main_frame, corner_radius=15, fg_color=group_frame_color, width=250)
         group_frame.grid(row=(group_count - 1) // 4, column=(group_count - 1) % 4, rowspan=1, columnspan=1, padx=10, pady=10, sticky="nsew")
 
+        button_frame = ctk.CTkFrame(group_frame, fg_color="transparent")
+        button_frame.grid(row=0, column=0, columnspan=2, pady=5, sticky="ew")
+        
+        button_frame.grid_columnconfigure(0, weight=2)
+        button_frame.grid_columnconfigure(1, weight=0)
+
         toggle_button = ctk.CTkButton(
-            group_frame, 
+            button_frame, 
             text=group_names[group_count],
             command=lambda g=group_count: toggle_group(g),
             fg_color="gray50",
             text_color="white",
-            height=32
+            height=32,
+            width=160
         )
-        toggle_button.grid(row=0, column=0, columnspan=2, pady=10, padx=10, sticky="ew")
+        toggle_button.grid(row=0, column=0, pady=5, padx=(10, 5), sticky="ew")
         toggle_vars.append(None)
         toggle_buttons.append(toggle_button)
+
+        try:
+            reset_icon = ctk.CTkImage(
+                light_image=Image.open("assets/reset_icon.png"),
+                dark_image=Image.open("assets/reset_icon.png"),
+                size=(20, 20)
+            )
+        except Exception as e:
+            print(f"Failed to load reset icon: {e}")
+            reset_icon = None
+
+        reset_button = ctk.CTkButton(
+            button_frame,
+            text="",
+            image=reset_icon if reset_icon else None,
+            command=lambda g=group_count: reset_group_positions(g),
+            fg_color="transparent",
+            text_color="white",
+            height=32,
+            width=32,
+            corner_radius=8
+        )
+        reset_button.grid(row=0, column=1, pady=5, padx=(0, 10))
 
         add_section_button = ctk.CTkButton(group_frame, text="Add Section", command=lambda g=group_count: add_section(g))
         add_section_buttons.append(add_section_button)
@@ -102,7 +132,6 @@ def main():
 
         label.bind("<Button-3>", lambda e, g=group_number, i=section_index: define_section(g, i))
         label.bind("<Button-1>", lambda e, i=section_index: open_rename_modal("Section", i))
-        label.bind("<Button-1>", lambda e, g=group_number: disable_group_toggle(g))
 
         if group_number <= len(add_section_buttons):
             add_section_button = add_section_buttons[group_number - 1]
@@ -214,36 +243,23 @@ def main():
 
     def toggle_group(group_number):
         button = toggle_buttons[group_number - 1]
-        is_active = button.cget("fg_color") == "green"
+        start_index = (group_number - 1) * max_sections_per_group
+        end_index = start_index + group_section_counts[group_number]
         
-        if not is_active:
-            button.configure(fg_color="green", text=f"{group_names[group_number]} (Active)")
-            start_index = (group_number - 1) * max_sections_per_group
-            end_index = start_index + group_section_counts[group_number]
-            
-            for i in range(start_index, end_index):
-                move_to_section(i + 1, section_positions)
-                time.sleep(0.3)
-            print(f"Group {group_number} enabled.")
-        else:
-            button.configure(fg_color="gray50", text=group_names[group_number])
-            print(f"Group {group_number} disabled.")
+        for i in range(start_index, end_index):
+            move_to_section(i + 1, section_positions)
+            time.sleep(0.3)
+        
+        show_warning(f"Operations completed for {group_names[group_number]}")
+        print(f"Operations completed for {group_names[group_number]}")
 
     def update_ui():
         for group_number in range(1, group_count + 1):
             button = toggle_buttons[group_number - 1]
-            current_text = button.cget("text")
-            is_active = "(Active)" in current_text
-            new_text = f"{group_names[group_number]}{' (Active)' if is_active else ''}"
-            button.configure(text=new_text)
+            button.configure(text=group_names[group_number])
             for i in range(1, group_section_counts[group_number] + 1):
                 if i in section_names[group_number]:
                     labels[(group_number - 1) * 4 + i - 1].configure(text=section_names[group_number][i])
-
-    def disable_group_toggle(group_number):
-        button = toggle_buttons[group_number - 1]
-        if button.cget("fg_color") == "green":
-            toggle_group(group_number)
 
     def show_warning(message):
         messagebox.showinfo("Warning", message)
@@ -260,6 +276,20 @@ def main():
             app.focus_force()
         else:
             app.withdraw()
+
+    def reset_group_positions(group_number):
+        start_index = (group_number - 1) * max_sections_per_group
+        end_index = start_index + group_section_counts[group_number]
+        
+        for i in range(start_index, end_index):
+            section_positions[i] = (0, 0)
+        
+        print(f"Reset positions for Group {group_number}")
+        show_warning(f"Reset positions for Group {group_number}")
+        
+        button = toggle_buttons[group_number - 1]
+        if button.cget("fg_color") == "green":
+            toggle_group(group_number)
 
     ctk.set_appearance_mode("dark")
     ctk.set_default_color_theme("green")
@@ -288,17 +318,47 @@ def main():
         group_frame = ctk.CTkFrame(main_frame, corner_radius=15, fg_color=group_frame_color, width=250)
         group_frame.grid(row=(group_number - 1) // 4, column=(group_number - 1) % 4, rowspan=1, columnspan=1, padx=10, pady=10, sticky="nsew")
 
+        button_frame = ctk.CTkFrame(group_frame, fg_color="transparent")
+        button_frame.grid(row=0, column=0, columnspan=2, pady=5, sticky="ew")
+        
+        button_frame.grid_columnconfigure(0, weight=2)
+        button_frame.grid_columnconfigure(1, weight=0)
+
         toggle_button = ctk.CTkButton(
-            group_frame, 
+            button_frame, 
             text=group_names[group_number],
             command=lambda g=group_number: toggle_group(g),
             fg_color="gray50",
             text_color="white",
-            height=32
+            height=32,
+            width=160
         )
-        toggle_button.grid(row=0, column=0, columnspan=2, pady=10, padx=10, sticky="ew")
+        toggle_button.grid(row=0, column=0, pady=5, padx=(10, 5), sticky="ew")
         toggle_vars.append(None)
         toggle_buttons.append(toggle_button)
+
+        try:
+            reset_icon = ctk.CTkImage(
+                light_image=Image.open("assets/reset_icon.png"),
+                dark_image=Image.open("assets/reset_icon.png"),
+                size=(20, 20)
+            )
+        except Exception as e:
+            print(f"Failed to load reset icon: {e}")
+            reset_icon = None
+
+        reset_button = ctk.CTkButton(
+            button_frame,
+            text="",
+            image=reset_icon if reset_icon else None,
+            command=lambda g=group_number: reset_group_positions(g),
+            fg_color="transparent",
+            text_color="white",
+            height=32,
+            width=32,
+            corner_radius=8
+        )
+        reset_button.grid(row=0, column=1, pady=5, padx=(0, 10))
 
         layout = group_layouts[group_number - 1]
 
@@ -314,7 +374,6 @@ def main():
 
             label.bind("<Button-3>", lambda e, g=group_number, i=section_index: define_section(g, i))
             label.bind("<Button-1>", lambda e, i=section_index: open_rename_modal("Section", i))
-            label.bind("<Button-1>", lambda e, g=group_number: disable_group_toggle(g))
 
         add_section_button = ctk.CTkButton(group_frame, text="Add Section", command=lambda g=group_number: add_section(g))
         add_section_button.grid(row=len(layout) + 1, column=0, columnspan=2, pady=5)
@@ -326,7 +385,13 @@ def main():
     add_group_button = ctk.CTkButton(app, text="Add Group", command=add_group)
     add_group_button.pack(pady=5)
 
-    icon_image = Image.new('RGB', (64, 64), color='green')
+    try:
+        icon_image = Image.open("assets/app_icon.png")
+        icon_image = icon_image.resize((64, 64))
+    except Exception as e:
+        print(f"Failed to load custom icon: {e}")
+        icon_image = Image.new('RGB', (64, 64), color='green')
+
     menu = (
         pystray.MenuItem("Show/Hide", toggle_window),
         pystray.MenuItem("Exit", on_exit)
