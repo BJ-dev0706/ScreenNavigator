@@ -8,7 +8,7 @@ import threading
 import pystray
 from PIL import Image
 import sys
-from app.utlis import center_window, move_to_section
+from app.utlis import center_window, move_to_section, PushNotification, MessageboxShowInfo
 
 def main():
     max_groups = 8
@@ -24,11 +24,14 @@ def main():
     labels = []
     add_section_buttons = []
     
+    reset_buttons = []
+    delete_buttons = []
+    
     def add_group():
         nonlocal group_count
         if group_count >= max_groups:
             print("Maximum number of groups reached.")
-            show_warning("Maximum number of groups reached.")
+            MessageboxShowInfo("Maximum number of groups reached.")
             return
 
         group_count += 1
@@ -119,6 +122,9 @@ def main():
         add_section_button.grid(row=1, column=0, columnspan=2, pady=5)
         add_section_buttons.append(add_section_button)
         
+        reset_buttons.append(reset_button)
+        delete_buttons.append(delete_button)
+        
         for _ in range(4):
             add_section(group_count)
 
@@ -128,7 +134,7 @@ def main():
     def add_section(group_number):
         if group_section_counts[group_number] >= max_sections_per_group:
             print(f"Group {group_number} already has the maximum number of sections.")
-            show_warning(f"Group {group_number} already has the maximum number of sections.")
+            MessageboxShowInfo(f"Group {group_number} already has the maximum number of sections.")
             return
 
         group_section_counts[group_number] += 1
@@ -363,7 +369,7 @@ def main():
         
         progress_window.destroy()
         
-        show_warning(f"Operations completed for {group_names[group_number]}")
+        PushNotification(f"Operations completed for {group_names[group_number]}")
         print(f"Operations completed for {group_names[group_number]}")
 
     def update_ui():
@@ -394,9 +400,6 @@ def main():
                                         child.configure(text=section_names[group_number][section_index])
                                         break
 
-    def show_warning(message):
-        messagebox.showinfo("Warning", message)
-
     def on_exit():
         icon.stop()
         app.quit()
@@ -420,7 +423,7 @@ def main():
         update_location_labels()
         
         print(f"Reset positions for Group {group_number}")
-        show_warning(f"Reset positions for Group {group_number}")
+        MessageboxShowInfo(f"Reset positions for Group {group_number}")
         
         if toggle_buttons[group_number - 1].cget("fg_color") == "green":
             toggle_group(group_number)
@@ -485,7 +488,7 @@ def main():
             register_shortcuts()
             
             dialog.destroy()
-            show_warning("Shortcuts updated successfully")
+            MessageboxShowInfo("Shortcuts updated successfully")
         
         def reset_to_defaults():
             for group_num, entry in entries.items():
@@ -507,7 +510,7 @@ def main():
 
     def delete_section(group_number, section_index):
         if group_section_counts[group_number] <= 1:
-            show_warning(f"Cannot delete the last section in Group {group_number}.\nDelete the entire group instead.")
+            MessageboxShowInfo(f"Cannot delete the last section in Group {group_number}.\nDelete the entire group instead.")
             return
         
         # Find the section frame to delete
@@ -553,17 +556,18 @@ def main():
         nonlocal group_count
         
         if group_count <= 1:
-            show_warning("Cannot delete the last group.")
+            MessageboxShowInfo("Cannot delete the last group.")
             return
         
         group_frame = toggle_buttons[group_number - 1].master.master
-        
         group_frame.destroy()
         
+        # Remove references to this group's buttons (so we don't try to configure them later)
         toggle_buttons.pop(group_number - 1)
-        
         add_section_buttons.pop(group_number - 1)
-        
+        reset_buttons.pop(group_number - 1)
+        delete_buttons.pop(group_number - 1)
+
         start_index = (group_number - 1) * max_sections_per_group
         end_index = start_index + max_sections_per_group
         for i in range(start_index, end_index):
@@ -646,27 +650,11 @@ def main():
             
             toggle_button.configure(command=lambda g=i+1: toggle_group(g))
             
-            reset_button = None
-            for widget in toggle_button.master.winfo_children():
-                if isinstance(widget, ctk.CTkFrame):
-                    for btn in widget.winfo_children():
-                        if isinstance(btn, ctk.CTkButton) and not btn.cget("text"):
-                            reset_button = btn
-                            break
+            reset_button = reset_buttons[i]
+            reset_button.configure(command=lambda g=i+1: reset_group_positions(g))
             
-            if reset_button:
-                reset_button.configure(command=lambda g=i+1: reset_group_positions(g))
-            
-            delete_button = None
-            for widget in toggle_button.master.winfo_children():
-                if isinstance(widget, ctk.CTkFrame):
-                    for btn in widget.winfo_children():
-                        if isinstance(btn, ctk.CTkButton) and (btn.cget("text") == "X" or btn.cget("image")):
-                            delete_button = btn
-                            break
-            
-            if delete_button:
-                delete_button.configure(command=lambda g=i+1: delete_group(g))
+            delete_button = delete_buttons[i]
+            delete_button.configure(command=lambda g=i+1: delete_group(g))
             
             toggle_button.bind("<Button-3>", lambda e, g=i+1: open_rename_modal("Group", g))
             
@@ -871,6 +859,9 @@ def main():
             label.bind("<Button-1>", lambda e, g=group_number, i=section_index: open_rename_section(g, i))
             location_label.bind("<Button-3>", lambda e, g=group_number, i=section_index: define_section(g, i))
             location_label.bind("<Button-1>", lambda e, g=group_number, i=section_index: open_rename_section(g, i))
+
+        reset_buttons.append(reset_button)
+        delete_buttons.append(delete_button)
 
     for i, toggle_button in enumerate(toggle_buttons, start=1):
         toggle_button.bind("<Button-3>", lambda e, i=i: open_rename_modal("Group", i))

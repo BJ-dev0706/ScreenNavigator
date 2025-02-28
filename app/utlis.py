@@ -1,5 +1,8 @@
 import pyautogui
 import time
+from plyer import notification
+from win10toast import ToastNotifier
+import tkinter.messagebox as messagebox
 try:
     import win32api
     import win32con
@@ -32,3 +35,26 @@ def center_window(window, width, height):
     y = (screen_height - height) // 2
     
     window.geometry(f"{width}x{height}+{x}+{y}")
+
+def PushNotification(message):
+    try:
+        toaster = ToastNotifier()
+        toaster.show_toast(
+            title="Screen Section Mover",
+            msg=message,
+            duration=5,
+            threaded=True,
+            icon_path="assets/app_icon.ico"
+        )
+    except Exception as e:
+        try:
+            notification.notify(
+                title="Screen Section Mover",
+                message=message,
+                app_icon=None,
+                timeout=5
+            )
+        except Exception as e:
+            print(f"Notification: {message}")
+def MessageboxShowInfo(message):
+    messagebox.showinfo("Warning", message)
