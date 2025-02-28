@@ -25,6 +25,15 @@ def move_to_section(section_number, positions):
         pyautogui.moveTo(pos[0], pos[1])
         pyautogui.click()
 
+def center_window(window, width, height):
+    screen_width = window.winfo_screenwidth()
+    screen_height = window.winfo_screenheight()
+    
+    x = (screen_width - width) // 2
+    y = (screen_height - height) // 2
+    
+    window.geometry(f"{width}x{height}+{x}+{y}")
+
 def main():
     max_groups = 8
     max_sections_per_group = 8
@@ -158,8 +167,13 @@ def main():
     def open_rename_modal(item_type, item_number):
         modal = ctk.CTkToplevel(app)
         modal.title(f"Rename {item_type} {item_number}")
-        modal.geometry("300x150")
-
+        
+        center_window(modal, 300, 150)
+        
+        modal.transient(app)
+        modal.attributes('-topmost', True)
+        modal.grab_set()
+        
         label = ctk.CTkLabel(modal, text=f"Enter new name for {item_type} {item_number}:")
         label.pack(pady=10)
 
@@ -267,8 +281,13 @@ def main():
     def open_rename_section(group_number, section_index):
         modal = ctk.CTkToplevel(app)
         modal.title(f"Rename Section {section_index}")
-        modal.geometry("300x150")
-
+        
+        center_window(modal, 300, 150)
+        
+        modal.transient(app)
+        modal.attributes('-topmost', True)
+        modal.grab_set()
+        
         label = ctk.CTkLabel(modal, text=f"Enter new name for Section {section_index}:")
         label.pack(pady=10)
 
@@ -287,13 +306,14 @@ def main():
         set_button.pack(pady=10)
 
     def toggle_group(group_number):
-        button = toggle_buttons[group_number - 1]
         start_index = (group_number - 1) * max_sections_per_group
         end_index = start_index + group_section_counts[group_number]
         
         progress_window = ctk.CTkToplevel(app)
         progress_window.title("Processing")
-        progress_window.geometry("300x100")
+        
+        center_window(progress_window, 300, 100)
+        
         progress_window.attributes('-topmost', True)
         
         progress_label = ctk.CTkLabel(progress_window, text=f"Processing {group_names[group_number]}...")
@@ -354,8 +374,7 @@ def main():
         print(f"Reset positions for Group {group_number}")
         show_warning(f"Reset positions for Group {group_number}")
         
-        button = toggle_buttons[group_number - 1]
-        if button.cget("fg_color") == "green":
+        if toggle_buttons[group_number - 1].cget("fg_color") == "green":
             toggle_group(group_number)
 
     def register_shortcuts():
@@ -369,7 +388,9 @@ def main():
 
     app = ctk.CTk()
     app.title("Screen Section Mover")
-    app.geometry("1000x800")
+    
+    center_window(app, 1000, 800)
+    
     app.minsize(1000, 800)
     app.maxsize(1000, 800)
     
