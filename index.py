@@ -291,6 +291,12 @@ def main():
         if button.cget("fg_color") == "green":
             toggle_group(group_number)
 
+    def register_shortcuts():
+        for group_num in range(1, max_groups + 1):
+            keyboard.add_hotkey(f'ctrl+shift+{group_num}', 
+                              lambda g=group_num: toggle_group(g))
+        print("Keyboard shortcuts registered")
+
     ctk.set_appearance_mode("dark")
     ctk.set_default_color_theme("green")
 
@@ -414,6 +420,8 @@ def main():
     icon_thread = threading.Thread(target=icon.run)
     icon_thread.daemon = True
     icon_thread.start()
+
+    register_shortcuts()
 
     app.mainloop()
 
