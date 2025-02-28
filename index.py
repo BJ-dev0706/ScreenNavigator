@@ -1,4 +1,3 @@
-import pyautogui
 import keyboard
 import time
 import customtkinter as ctk
@@ -9,30 +8,7 @@ import threading
 import pystray
 from PIL import Image
 import sys
-import os
-
-def get_combined_screen_size():
-    monitors = get_monitors()
-    combined_width = sum(monitor.width for monitor in monitors)
-    combined_height = max(monitor.height for monitor in monitors)
-    print(combined_width, combined_height)
-    return combined_width, combined_height
-
-def move_to_section(section_number, positions):
-    pos = positions[section_number - 1]
-    print(f"Moving to section {section_number} at position {pos}")
-    if pos != (0, 0):
-        pyautogui.moveTo(pos[0], pos[1])
-        pyautogui.click()
-
-def center_window(window, width, height):
-    screen_width = window.winfo_screenwidth()
-    screen_height = window.winfo_screenheight()
-    
-    x = (screen_width - width) // 2
-    y = (screen_height - height) // 2
-    
-    window.geometry(f"{width}x{height}+{x}+{y}")
+from app.utlis import center_window, move_to_section
 
 def main():
     max_groups = 8
