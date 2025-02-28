@@ -24,18 +24,6 @@ def main():
     labels = []
     add_section_buttons = []
     
-    try:
-        monitors = get_monitors()
-        if not monitors:
-            print("No monitors detected. Using fallback values.")
-            combined_width, combined_height = 1920, 1080
-        else:
-            combined_width = sum(monitor.width for monitor in monitors)
-            combined_height = max(monitor.height for monitor in monitors)
-    except Exception as e:
-        print(f"Error detecting monitors: {e}. Using fallback values.")
-        combined_width, combined_height = 1920, 1080
-    
     def add_group():
         nonlocal group_count
         if group_count >= max_groups:
@@ -51,7 +39,6 @@ def main():
         group_section_counts[group_count] = 0
         section_names[group_count] = {}
         
-        # Assign default shortcut for the new group
         group_shortcuts[group_count] = f'ctrl+shift+{group_count}'
         
         group_frame = ctk.CTkFrame(main_frame, corner_radius=15, fg_color=group_frame_color, width=200)
@@ -360,12 +347,20 @@ def main():
             if group_number <= len(toggle_buttons):
                 button = toggle_buttons[group_number - 1]
                 button.configure(text=group_names[group_number])
+                
+                group_frame = button.master.master
+                
                 for i in range(1, group_section_counts[group_number] + 1):
                     if i in section_names[group_number]:
                         for label in labels:
-                            if label.master == button.master.master and label.cget("text") == section_names[group_number].get(i, f"Section {i}"):
-                                label.configure(text=section_names[group_number][i])
-                                break
+                            if label.master == group_frame:
+                                row = ((i - 1) // 2) + 2
+                                col = (i - 1) % 2
+                                
+                                label_info = label.grid_info()
+                                if label_info and int(label_info['row']) == row and int(label_info['column']) == col:
+                                    label.configure(text=section_names[group_number][i])
+                                    break
 
     def show_warning(message):
         messagebox.showinfo("Warning", message)
@@ -445,7 +440,6 @@ def main():
             
             entries[group_num] = shortcut_entry
         
-        # Add a help label
         help_label = ctk.CTkLabel(container, text="Format: ctrl+shift+1, alt+f, etc.", 
                                  text_color="gray70", font=("Arial", 12))
         help_label.pack(pady=(10, 0))
@@ -465,11 +459,9 @@ def main():
                 entry.delete(0, 'end')
                 entry.insert(0, default_shortcut)
         
-        # Create a button frame for the buttons at the bottom
         button_frame = ctk.CTkFrame(dialog, fg_color="transparent")
         button_frame.pack(pady=10, fill="x", padx=20)
         
-        # Add buttons to the frame
         save_button = ctk.CTkButton(button_frame, text="Save", command=save_shortcuts, width=120)
         save_button.pack(side="left", padx=10)
         
@@ -653,7 +645,15 @@ def main():
     help_menu = tk.Menu(menu_bar, tearoff=0)
     menu_bar.add_cascade(label="Help", menu=help_menu)
     help_menu.add_command(label="About", command=lambda: messagebox.showinfo(
-        "About", "Screen Section Mover v1.0\n\nA tool to define and navigate screen sections."
+        "About", 
+        "Screen Section Mover v1.0\n\n"
+        "How to use:\n"
+        "1. Create groups to organize your screen sections\n"
+        "2. Add sections within each group\n"
+        "3. Right-click on a section to define its area on screen\n"
+        "4. Left-click on a section to rename or delete it\n"
+        "5. Click a group button or use keyboard shortcuts to activate all sections in that group\n\n"
+        "Tip: Use Settings → Edit Shortcuts to customize keyboard shortcuts"
     ))
     help_menu.add_command(label="Shortcuts", command=lambda: messagebox.showinfo(
         "Keyboard Shortcuts", 
