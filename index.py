@@ -58,7 +58,7 @@ def main():
             height=32
         )
         toggle_button.grid(row=0, column=0, columnspan=2, pady=10, padx=10, sticky="ew")
-        toggle_vars.append(None)  # Keep the list for compatibility
+        toggle_vars.append(None)
         toggle_buttons.append(toggle_button)
 
         add_section_button = ctk.CTkButton(group_frame, text="Add Section", command=lambda g=group_count: add_section(g))
@@ -143,32 +143,26 @@ def main():
         combined_height = max(monitor.height for monitor in monitors)
 
         root = tk.Tk()
-        # Position window at the absolute (0,0) coordinate of the entire display setup
         root.geometry(f"{combined_width}x{combined_height}-0+0")
         
-        # Remove window decorations and make it stay on top
         root.overrideredirect(True)
         root.attributes('-topmost', True)
         root.attributes('-alpha', 0.3)
         
-        # Ensure window spans all displays by setting it at the leftmost position
         min_x = min(monitor.x for monitor in monitors)
         min_y = min(monitor.y for monitor in monitors)
         root.geometry(f"+{min_x}+{min_y}")
 
-        # Create a canvas that spans all monitors
         canvas = tk.Canvas(root, cursor="cross", width=combined_width, height=combined_height, 
                           highlightthickness=0)
         canvas.configure(bg='black')
         canvas.pack(fill="both", expand=True)
 
-        # Store coordinates for drawing
         start_x = start_y = 0
         rect_id = None
 
         def on_click(event):
             nonlocal start_x, start_y
-            # Get absolute coordinates relative to the entire display setup
             start_x = root.winfo_pointerx() - root.winfo_rootx()
             start_y = root.winfo_pointery() - root.winfo_rooty()
 
@@ -177,11 +171,9 @@ def main():
             if rect_id:
                 canvas.delete(rect_id)
             
-            # Get current pointer position relative to the entire display setup
             current_x = root.winfo_pointerx() - root.winfo_rootx()
             current_y = root.winfo_pointery() - root.winfo_rooty()
             
-            # Draw rectangle using screen coordinates
             rect_id = canvas.create_rectangle(
                 start_x, start_y, 
                 current_x, current_y, 
@@ -189,11 +181,9 @@ def main():
             )
 
         def on_release(event):
-            # Get final position relative to the entire display setup
             end_x = root.winfo_pointerx() - root.winfo_rootx()
             end_y = root.winfo_pointery() - root.winfo_rooty()
             
-            # Calculate center point using absolute coordinates
             center_x = (start_x + end_x) // 2
             center_y = (start_y + end_y) // 2
             
@@ -202,7 +192,6 @@ def main():
             print(f"Section {section_number} in Group {group_number} defined at {section_positions[index]} (across all displays)")
             root.destroy()
 
-        # Add escape key binding to close the window
         root.bind("<Escape>", lambda e: root.destroy())
         canvas.bind("<Button-1>", on_click)
         canvas.bind("<B1-Motion>", on_drag)
@@ -282,7 +271,7 @@ def main():
             height=32
         )
         toggle_button.grid(row=0, column=0, columnspan=2, pady=10, padx=10, sticky="ew")
-        toggle_vars.append(None)  # Keep the list for compatibility
+        toggle_vars.append(None)
         toggle_buttons.append(toggle_button)
 
         layout = group_layouts[group_number - 1]
