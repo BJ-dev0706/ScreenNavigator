@@ -1,4 +1,3 @@
-import pyautogui
 import keyboard
 import time
 import customtkinter as ctk
@@ -9,30 +8,7 @@ import threading
 import pystray
 from PIL import Image
 import sys
-import os
-
-def get_combined_screen_size():
-    monitors = get_monitors()
-    combined_width = sum(monitor.width for monitor in monitors)
-    combined_height = max(monitor.height for monitor in monitors)
-    print(combined_width, combined_height)
-    return combined_width, combined_height
-
-def move_to_section(section_number, positions):
-    pos = positions[section_number - 1]
-    print(f"Moving to section {section_number} at position {pos}")
-    if pos != (0, 0):
-        pyautogui.moveTo(pos[0], pos[1])
-        pyautogui.click()
-
-def center_window(window, width, height):
-    screen_width = window.winfo_screenwidth()
-    screen_height = window.winfo_screenheight()
-    
-    x = (screen_width - width) // 2
-    y = (screen_height - height) // 2
-    
-    window.geometry(f"{width}x{height}+{x}+{y}")
+from app.utlis import center_window, move_to_section, PushNotification, MessageboxShowInfo
 
 def main():
     max_groups = 8
@@ -42,28 +18,20 @@ def main():
     section_names = {i: {j: f"Section {j}" for j in range(1, 5)} for i in range(1, 5)}
     group_count = 4
     group_section_counts = {i: 4 for i in range(1, 5)}
+    group_shortcuts = {i: f'ctrl+shift+{i}' for i in range(1, max_groups + 1)}
 
     toggle_buttons = []
     labels = []
     add_section_buttons = []
     
-    try:
-        monitors = get_monitors()
-        if not monitors:
-            print("No monitors detected. Using fallback values.")
-            combined_width, combined_height = 1920, 1080
-        else:
-            combined_width = sum(monitor.width for monitor in monitors)
-            combined_height = max(monitor.height for monitor in monitors)
-    except Exception as e:
-        print(f"Error detecting monitors: {e}. Using fallback values.")
-        combined_width, combined_height = 1920, 1080
+    reset_buttons = []
+    delete_buttons = []
     
     def add_group():
         nonlocal group_count
         if group_count >= max_groups:
             print("Maximum number of groups reached.")
-            show_warning("Maximum number of groups reached.")
+            MessageboxShowInfo("Maximum number of groups reached.")
             return
 
         group_count += 1
@@ -73,7 +41,9 @@ def main():
         group_names[group_count] = f"Group {group_count}"
         group_section_counts[group_count] = 0
         section_names[group_count] = {}
-
+        
+        group_shortcuts[group_count] = f'ctrl+shift+{group_count}'
+        
         group_frame = ctk.CTkFrame(main_frame, corner_radius=15, fg_color=group_frame_color, width=200)
         group_frame.grid(row=(group_count - 1) // 4, column=(group_count - 1) % 4, rowspan=1, columnspan=1, padx=5, pady=5, sticky="nsew")
 
@@ -84,7 +54,7 @@ def main():
         button_frame.grid(row=0, column=0, columnspan=2, pady=5, sticky="ew")
         
         button_frame.grid_columnconfigure(0, weight=2)
-        button_frame.grid_columnconfigure(1, weight=0)
+        button_frame.grid_columnconfigure(1, weight=1)
 
         toggle_button = ctk.CTkButton(
             button_frame, 
@@ -97,6 +67,8 @@ def main():
         )
         toggle_button.grid(row=0, column=0, pady=5, padx=(10, 5), sticky="ew")
         toggle_buttons.append(toggle_button)
+        
+        toggle_button.bind("<Button-3>", lambda e, g=group_count: open_rename_modal("Group", g))
 
         try:
             reset_icon = ctk.CTkImage(
@@ -104,12 +76,21 @@ def main():
                 dark_image=Image.open("assets/reset_icon.png"),
                 size=(20, 20)
             )
+            delete_icon = ctk.CTkImage(
+                light_image=Image.open("assets/delete_icon.png"),
+                dark_image=Image.open("assets/delete_icon.png"),
+                size=(20, 20)
+            )
         except Exception as e:
-            print(f"Failed to load reset icon: {e}")
+            print(f"Failed to load icons: {e}")
             reset_icon = None
+            delete_icon = None
+
+        button_actions_frame = ctk.CTkFrame(button_frame, fg_color="transparent")
+        button_actions_frame.grid(row=0, column=1, pady=5, padx=(0, 10))
 
         reset_button = ctk.CTkButton(
-            button_frame,
+            button_actions_frame,
             text="",
             image=reset_icon if reset_icon else None,
             command=lambda g=group_count: reset_group_positions(g),
@@ -119,11 +100,30 @@ def main():
             width=32,
             corner_radius=8
         )
-        reset_button.grid(row=0, column=1, pady=5, padx=(0, 10))
+        reset_button.grid(row=0, column=0, padx=2)
+
+        delete_button = ctk.CTkButton(
+            button_actions_frame,
+            text="",
+            image=delete_icon if delete_icon else None,
+            command=lambda g=group_count: delete_group(g),
+            fg_color="transparent",
+            text_color="white",
+            height=32,
+            width=32,
+            corner_radius=8
+        )
+        delete_button.grid(row=0, column=1, padx=2)
+        
+        if not delete_icon:
+            delete_button.configure(text="X", fg_color="red", width=20)
 
         add_section_button = ctk.CTkButton(group_frame, text="Add Section", command=lambda g=group_count: add_section(g))
         add_section_button.grid(row=1, column=0, columnspan=2, pady=5)
         add_section_buttons.append(add_section_button)
+        
+        reset_buttons.append(reset_button)
+        delete_buttons.append(delete_button)
         
         for _ in range(4):
             add_section(group_count)
@@ -134,7 +134,7 @@ def main():
     def add_section(group_number):
         if group_section_counts[group_number] >= max_sections_per_group:
             print(f"Group {group_number} already has the maximum number of sections.")
-            show_warning(f"Group {group_number} already has the maximum number of sections.")
+            MessageboxShowInfo(f"Group {group_number} already has the maximum number of sections.")
             return
 
         group_section_counts[group_number] += 1
@@ -150,16 +150,35 @@ def main():
         group_frame.grid_columnconfigure(0, weight=1)
         group_frame.grid_columnconfigure(1, weight=1)
 
+        section_frame = ctk.CTkFrame(group_frame, fg_color="gray30", corner_radius=8)
+        section_frame.grid(row=row, column=col, padx=5, pady=5, sticky="nsew")
+        
         label_text = section_names[group_number][section_index]
         label = ctk.CTkLabel(
-            group_frame, text=label_text, width=80, height=40, corner_radius=8,
-            fg_color="gray30", text_color="black", font=("Arial", 14)
+            section_frame, text=label_text, width=80, height=25, 
+            fg_color="transparent", text_color="white", font=("Arial", 14, "bold")
         )
-        label.grid(row=row, column=col, padx=5, pady=5, sticky="nsew")
+        label.pack(pady=(5, 0))
         labels.append(label)
-
+        
+        # Add location label
+        pos_index = (group_number - 1) * max_sections_per_group + (section_index - 1)
+        location_text = "Not defined yet"
+        if section_positions[pos_index] != (0, 0):
+            location_text = f"({section_positions[pos_index][0]}, {section_positions[pos_index][1]})"
+        
+        location_label = ctk.CTkLabel(
+            section_frame, text=location_text, width=80, height=15,
+            fg_color="transparent", text_color="gray70", font=("Arial", 10)
+        )
+        location_label.pack(pady=(0, 5))
+        
+        section_frame.bind("<Button-3>", lambda e, g=group_number, i=section_index: define_section(g, i))
+        section_frame.bind("<Button-1>", lambda e, g=group_number, i=section_index: open_rename_section(g, i))
         label.bind("<Button-3>", lambda e, g=group_number, i=section_index: define_section(g, i))
         label.bind("<Button-1>", lambda e, g=group_number, i=section_index: open_rename_section(g, i))
+        location_label.bind("<Button-3>", lambda e, g=group_number, i=section_index: define_section(g, i))
+        location_label.bind("<Button-1>", lambda e, g=group_number, i=section_index: open_rename_section(g, i))
 
         update_ui()
         print(f"Added {section_names[group_number][section_index]} to Group {group_number}")
@@ -264,6 +283,10 @@ def main():
             index = (group_number - 1) * max_sections_per_group + (section_number - 1)
             section_positions[index] = (center_x, center_y)
             print(f"Section {section_number} in Group {group_number} defined at {section_positions[index]} (across all displays)")
+            
+            # Update the location label
+            update_location_labels()
+            
             root.destroy()
             app.deiconify()
 
@@ -280,18 +303,18 @@ def main():
 
     def open_rename_section(group_number, section_index):
         modal = ctk.CTkToplevel(app)
-        modal.title(f"Rename Section {section_index}")
+        modal.title(f"Section {section_index} Options")
         
-        center_window(modal, 300, 150)
+        center_window(modal, 300, 200)
         
         modal.transient(app)
         modal.attributes('-topmost', True)
         modal.grab_set()
         
-        label = ctk.CTkLabel(modal, text=f"Enter new name for Section {section_index}:")
+        label = ctk.CTkLabel(modal, text=f"Options for {section_names[group_number][section_index]}:")
         label.pack(pady=10)
 
-        entry = ctk.CTkEntry(modal, width=100)
+        entry = ctk.CTkEntry(modal, width=200)
         entry.pack(pady=10)
         entry.insert(0, section_names[group_number][section_index])
 
@@ -302,8 +325,18 @@ def main():
                 update_ui()
             modal.destroy()
 
-        set_button = ctk.CTkButton(modal, text="Set", command=set_name)
-        set_button.pack(pady=10)
+        def delete():
+            modal.destroy()
+            delete_section(group_number, section_index)
+
+        button_frame = ctk.CTkFrame(modal, fg_color="transparent")
+        button_frame.pack(pady=10, fill="x")
+        
+        set_button = ctk.CTkButton(button_frame, text="Rename", command=set_name)
+        set_button.pack(side="left", padx=10)
+        
+        delete_button = ctk.CTkButton(button_frame, text="Delete", fg_color="red", command=delete)
+        delete_button.pack(side="right", padx=10)
 
     def toggle_group(group_number):
         start_index = (group_number - 1) * max_sections_per_group
@@ -333,23 +366,39 @@ def main():
             move_to_section(idx + 1, section_positions)
             progress_bar.set((i + 1) / total_sections)
             progress_window.update()
-            time.sleep(0.3)
         
         progress_window.destroy()
         
-        show_warning(f"Operations completed for {group_names[group_number]}")
+        PushNotification(f"Operations completed for {group_names[group_number]}")
         print(f"Operations completed for {group_names[group_number]}")
 
     def update_ui():
         for group_number in range(1, group_count + 1):
-            button = toggle_buttons[group_number - 1]
-            button.configure(text=group_names[group_number])
-            for i in range(1, group_section_counts[group_number] + 1):
-                if i in section_names[group_number]:
-                    labels[(group_number - 1) * 4 + i - 1].configure(text=section_names[group_number][i])
-
-    def show_warning(message):
-        messagebox.showinfo("Warning", message)
+            if group_number <= len(toggle_buttons):
+                # Update group button text
+                button = toggle_buttons[group_number - 1]
+                button.configure(text=group_names[group_number])
+                
+                group_frame = button.master.master
+                
+                section_frames = [w for w in group_frame.winfo_children() 
+                                if isinstance(w, ctk.CTkFrame) 
+                                and w != button.master  # Exclude button frame
+                                and w != add_section_buttons[group_number - 1]]  # Exclude add section button
+                
+                for section_index in range(1, group_section_counts[group_number] + 1):
+                    if section_index in section_names[group_number]:
+                        row = ((section_index - 1) // 2) + 2
+                        col = (section_index - 1) % 2
+                        
+                        for frame in section_frames:
+                            grid_info = frame.grid_info()
+                            if (int(grid_info.get('row', -1)) == row and 
+                                int(grid_info.get('column', -1)) == col):
+                                for child in frame.winfo_children():
+                                    if isinstance(child, ctk.CTkLabel):
+                                        child.configure(text=section_names[group_number][section_index])
+                                        break
 
     def on_exit():
         icon.stop()
@@ -371,17 +420,276 @@ def main():
         for i in range(start_index, end_index):
             section_positions[i] = (0, 0)
         
+        update_location_labels()
+        
         print(f"Reset positions for Group {group_number}")
-        show_warning(f"Reset positions for Group {group_number}")
+        MessageboxShowInfo(f"Reset positions for Group {group_number}")
         
         if toggle_buttons[group_number - 1].cget("fg_color") == "green":
             toggle_group(group_number)
 
     def register_shortcuts():
-        for group_num in range(1, max_groups + 1):
-            keyboard.add_hotkey(f'ctrl+shift+{group_num}', 
-                              lambda g=group_num: toggle_group(g))
+        keyboard.unhook_all()
+        
+        for group_num, shortcut in group_shortcuts.items():
+            if group_num <= group_count and shortcut:
+                try:
+                    keyboard.add_hotkey(shortcut, 
+                                      lambda g=group_num: toggle_group(g))
+                    print(f"Registered shortcut {shortcut} for Group {group_num}")
+                except Exception as e:
+                    print(f"Failed to register shortcut {shortcut}: {e}")
+        
+        keyboard.add_hotkey('esc', on_exit)
+        
         print("Keyboard shortcuts registered")
+
+    def open_shortcuts_dialog():
+        dialog = ctk.CTkToplevel(app)
+        dialog.title("Keyboard Shortcuts")
+        
+        center_window(dialog, 400, 400)
+        
+        dialog.transient(app)
+        dialog.attributes('-topmost', True)
+        dialog.grab_set()
+        
+        container = ctk.CTkScrollableFrame(dialog, width=380, height=300)
+        container.pack(pady=10, padx=10, fill="both", expand=True)
+        
+        header_frame = ctk.CTkFrame(container, fg_color="transparent")
+        header_frame.pack(fill="x", pady=(0, 10))
+        
+        ctk.CTkLabel(header_frame, text="Group", font=("Arial", 14, "bold")).pack(side="left", padx=(10, 0))
+        ctk.CTkLabel(header_frame, text="Shortcut", font=("Arial", 14, "bold")).pack(side="right", padx=(0, 10))
+        
+        entries = {}
+        for group_num in range(1, group_count + 1):
+            row = ctk.CTkFrame(container)
+            row.pack(fill="x", pady=5)
+            
+            group_label = ctk.CTkLabel(row, text=group_names[group_num], width=150)
+            group_label.pack(side="left", padx=10)
+            
+            shortcut_entry = ctk.CTkEntry(row, width=200)
+            shortcut_entry.pack(side="right", padx=10)
+            shortcut_entry.insert(0, group_shortcuts.get(group_num, ""))
+            
+            entries[group_num] = shortcut_entry
+        
+        help_label = ctk.CTkLabel(container, text="Format: ctrl+shift+1, alt+f, etc.", 
+                                 text_color="gray70", font=("Arial", 12))
+        help_label.pack(pady=(10, 0))
+        
+        def save_shortcuts():
+            for group_num, entry in entries.items():
+                group_shortcuts[group_num] = entry.get()
+            
+            register_shortcuts()
+            
+            dialog.destroy()
+            MessageboxShowInfo("Shortcuts updated successfully")
+        
+        def reset_to_defaults():
+            for group_num, entry in entries.items():
+                default_shortcut = f'ctrl+shift+{group_num}'
+                entry.delete(0, 'end')
+                entry.insert(0, default_shortcut)
+        
+        button_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+        button_frame.pack(pady=10, fill="x", padx=20)
+        
+        save_button = ctk.CTkButton(button_frame, text="Save", command=save_shortcuts, width=120)
+        save_button.pack(side="left", padx=10)
+        
+        reset_button = ctk.CTkButton(button_frame, text="Reset to Defaults", command=reset_to_defaults, width=120)
+        reset_button.pack(side="left", padx=10)
+        
+        cancel_button = ctk.CTkButton(button_frame, text="Cancel", command=dialog.destroy, width=120)
+        cancel_button.pack(side="right", padx=10)
+
+    def delete_section(group_number, section_index):
+        if group_section_counts[group_number] <= 1:
+            MessageboxShowInfo(f"Cannot delete the last section in Group {group_number}.\nDelete the entire group instead.")
+            return
+        
+        # Find the section frame to delete
+        group_frame = toggle_buttons[group_number - 1].master.master
+        row = ((section_index - 1) // 2) + 2
+        col = (section_index - 1) % 2
+        
+        section_frame_to_delete = None
+        for widget in group_frame.winfo_children():
+            if isinstance(widget, ctk.CTkFrame) and widget != toggle_buttons[group_number - 1].master:
+                widget_info = widget.grid_info()
+                if (widget_info and 
+                    int(widget_info.get('row', -1)) == row and 
+                    int(widget_info.get('column', -1)) == col):
+                    section_frame_to_delete = widget
+                    break
+        
+        if section_frame_to_delete:
+            # Remove any labels in this frame from the labels list
+            for child in section_frame_to_delete.winfo_children():
+                if isinstance(child, ctk.CTkLabel) and child in labels:
+                    labels.remove(child)
+            
+            # Destroy the frame
+            section_frame_to_delete.destroy()
+        
+        # Reset the position
+        pos_index = (group_number - 1) * max_sections_per_group + (section_index - 1)
+        section_positions[pos_index] = (0, 0)
+        
+        # Remove from section_names
+        del section_names[group_number][section_index]
+        
+        # Decrease the section count
+        group_section_counts[group_number] -= 1
+        
+        # Reorganize the remaining sections
+        reorganize_sections(group_number)
+        
+        print(f"Deleted Section {section_index} from Group {group_number}")
+
+    def delete_group(group_number):
+        nonlocal group_count
+        
+        if group_count <= 1:
+            MessageboxShowInfo("Cannot delete the last group.")
+            return
+        
+        group_frame = toggle_buttons[group_number - 1].master.master
+        group_frame.destroy()
+        
+        # Remove references to this group's buttons (so we don't try to configure them later)
+        toggle_buttons.pop(group_number - 1)
+        add_section_buttons.pop(group_number - 1)
+        reset_buttons.pop(group_number - 1)
+        delete_buttons.pop(group_number - 1)
+
+        start_index = (group_number - 1) * max_sections_per_group
+        end_index = start_index + max_sections_per_group
+        for i in range(start_index, end_index):
+            section_positions[i] = (0, 0)
+        
+        del group_names[group_number]
+        del section_names[group_number]
+        del group_section_counts[group_number]
+        
+        group_count -= 1
+        
+        reorganize_groups()
+        
+        print(f"Deleted Group {group_number}")
+
+    def reorganize_sections(group_number):
+        group_frame = toggle_buttons[group_number - 1].master.master
+        
+        for widget in group_frame.winfo_children():
+            if isinstance(widget, ctk.CTkLabel):
+                widget.grid_forget()
+        
+        section_indices = sorted(section_names[group_number].keys())
+        for i, section_index in enumerate(section_indices):
+            row = (i // 2) + 2
+            col = i % 2
+            
+            label_text = section_names[group_number][section_index]
+            for label in labels:
+                if label.master == group_frame and label.cget("text") == label_text:
+                    label.grid(row=row, column=col, padx=5, pady=5, sticky="nsew")
+                    break
+
+    def reorganize_groups():
+        nonlocal group_names, section_names, group_section_counts, section_positions, group_shortcuts
+        
+        old_to_new_group_map = {old_num: new_num for new_num, old_num in 
+                               enumerate(sorted(group_names.keys()), 1)}
+        
+        new_group_names = {}
+        new_section_names = {}
+        new_group_section_counts = {}
+        new_group_shortcuts = {}
+        
+        for old_group_num, new_group_num in old_to_new_group_map.items():
+            new_group_names[new_group_num] = group_names[old_group_num]
+            new_section_names[new_group_num] = section_names[old_group_num]
+            new_group_section_counts[new_group_num] = group_section_counts[old_group_num]
+            if old_group_num in group_shortcuts:
+                new_group_shortcuts[new_group_num] = group_shortcuts[old_group_num]
+        
+        for i in range(1, max_groups + 1):
+            if i not in new_group_shortcuts:
+                new_group_shortcuts[i] = f'ctrl+shift+{i}'
+        
+        new_section_positions = [(0, 0) for _ in range(max_groups * max_sections_per_group)]
+        
+        for old_group_num, new_group_num in old_to_new_group_map.items():
+            for section_idx in range(1, group_section_counts[old_group_num] + 1):
+                old_pos_idx = (old_group_num - 1) * max_sections_per_group + (section_idx - 1)
+                new_pos_idx = (new_group_num - 1) * max_sections_per_group + (section_idx - 1)
+                
+                if old_pos_idx < len(section_positions):
+                    new_section_positions[new_pos_idx] = section_positions[old_pos_idx]
+        
+        group_names = new_group_names
+        section_names = new_section_names
+        group_section_counts = new_group_section_counts
+        section_positions = new_section_positions
+        group_shortcuts = new_group_shortcuts
+        
+        register_shortcuts()
+        
+        for i, toggle_button in enumerate(toggle_buttons):
+            group_frame = toggle_button.master.master
+            group_frame.grid_forget()
+            group_frame.grid(row=i // 4, column=i % 4, rowspan=1, columnspan=1, padx=5, pady=5, sticky="nsew")
+            
+            toggle_button.configure(text=group_names[i + 1])
+            
+            toggle_button.configure(command=lambda g=i+1: toggle_group(g))
+            
+            reset_button = reset_buttons[i]
+            reset_button.configure(command=lambda g=i+1: reset_group_positions(g))
+            
+            delete_button = delete_buttons[i]
+            delete_button.configure(command=lambda g=i+1: delete_group(g))
+            
+            toggle_button.bind("<Button-3>", lambda e, g=i+1: open_rename_modal("Group", g))
+            
+            add_section_button = add_section_buttons[i]
+            add_section_button.configure(command=lambda g=i+1: add_section(g))
+        
+        update_ui()
+
+    def update_location_labels():
+        for group_number in range(1, group_count + 1):
+            group_frame = toggle_buttons[group_number - 1].master.master
+            
+            section_frames = [w for w in group_frame.winfo_children() 
+                             if isinstance(w, ctk.CTkFrame) 
+                             and w != toggle_buttons[group_number - 1].master
+                             and w != add_section_buttons[group_number - 1].master]
+            
+            for section_index in range(1, group_section_counts[group_number] + 1):
+                pos_index = (group_number - 1) * max_sections_per_group + (section_index - 1)
+                row = ((section_index - 1) // 2) + 2
+                col = (section_index - 1) % 2
+                
+                for frame in section_frames:
+                    grid_info = frame.grid_info()
+                    if (int(grid_info.get('row', -1)) == row and 
+                        int(grid_info.get('column', -1)) == col):
+                        labels_in_frame = [w for w in frame.winfo_children() 
+                                         if isinstance(w, ctk.CTkLabel)]
+                        if len(labels_in_frame) >= 2:
+                            location_label = labels_in_frame[1]  # Get the second label
+                            location_text = "Not defined yet"
+                            if section_positions[pos_index] != (0, 0):
+                                location_text = f"({section_positions[pos_index][0]}, {section_positions[pos_index][1]})"
+                            location_label.configure(text=location_text)
+                        break
 
     ctk.set_appearance_mode("dark")
     ctk.set_default_color_theme("green")
@@ -404,11 +712,25 @@ def main():
     help_menu = tk.Menu(menu_bar, tearoff=0)
     menu_bar.add_cascade(label="Help", menu=help_menu)
     help_menu.add_command(label="About", command=lambda: messagebox.showinfo(
-        "About", "Screen Section Mover v1.0\n\nA tool to define and navigate screen sections."
+        "About", 
+        "Screen Section Mover v1.0\n\n"
+        "How to use:\n"
+        "1. Create groups to organize your screen sections\n"
+        "2. Add sections within each group\n"
+        "3. Right-click on a section to define its area on screen\n"
+        "4. Left-click on a section to rename or delete it\n"
+        "5. Click a group button or use keyboard shortcuts to activate all sections in that group\n\n"
+        "Tip: Use Settings → Edit Shortcuts to customize keyboard shortcuts"
     ))
     help_menu.add_command(label="Shortcuts", command=lambda: messagebox.showinfo(
-        "Keyboard Shortcuts", "Ctrl+Shift+[1-8]: Activate Group 1-8\nEsc: Exit application"
+        "Keyboard Shortcuts", 
+        "\n".join([f"{group_names[g]}: {shortcut}" for g, shortcut in group_shortcuts.items() if g <= group_count]) +
+        "\n\nEsc: Exit application"
     ))
+
+    settings_menu = tk.Menu(menu_bar, tearoff=0)
+    menu_bar.add_cascade(label="Settings", menu=settings_menu)
+    settings_menu.add_command(label="Edit Shortcuts", command=open_shortcuts_dialog)
 
     main_frame = ctk.CTkFrame(app, corner_radius=15, fg_color="gray30")
     main_frame.pack(pady=5, padx=5, fill="both", expand=True)
@@ -437,7 +759,7 @@ def main():
         button_frame.grid(row=0, column=0, columnspan=2, pady=5, sticky="ew")
         
         button_frame.grid_columnconfigure(0, weight=2)
-        button_frame.grid_columnconfigure(1, weight=0)
+        button_frame.grid_columnconfigure(1, weight=1)
 
         toggle_button = ctk.CTkButton(
             button_frame, 
@@ -457,12 +779,21 @@ def main():
                 dark_image=Image.open("assets/reset_icon.png"),
                 size=(20, 20)
             )
+            delete_icon = ctk.CTkImage(
+                light_image=Image.open("assets/delete_icon.png"),
+                dark_image=Image.open("assets/delete_icon.png"),
+                size=(20, 20)
+            )
         except Exception as e:
-            print(f"Failed to load reset icon: {e}")
+            print(f"Failed to load icons: {e}")
             reset_icon = None
+            delete_icon = None
+
+        button_actions_frame = ctk.CTkFrame(button_frame, fg_color="transparent")
+        button_actions_frame.grid(row=0, column=1, pady=5, padx=(0, 10))
 
         reset_button = ctk.CTkButton(
-            button_frame,
+            button_actions_frame,
             text="",
             image=reset_icon if reset_icon else None,
             command=lambda g=group_number: reset_group_positions(g),
@@ -472,7 +803,23 @@ def main():
             width=32,
             corner_radius=8
         )
-        reset_button.grid(row=0, column=1, pady=5, padx=(0, 10))
+        reset_button.grid(row=0, column=0, padx=2)
+
+        delete_button = ctk.CTkButton(
+            button_actions_frame,
+            text="",
+            image=delete_icon if delete_icon else None,
+            command=lambda g=group_number: delete_group(g),
+            fg_color="transparent",
+            text_color="white",
+            height=32,
+            width=32,
+            corner_radius=8
+        )
+        delete_button.grid(row=0, column=1, padx=2)
+        
+        if not delete_icon:
+            delete_button.configure(text="X", fg_color="red", width=20)
 
         add_section_button = ctk.CTkButton(group_frame, text="Add Section", command=lambda g=group_number: add_section(g))
         add_section_button.grid(row=1, column=0, columnspan=2, pady=5)
@@ -482,16 +829,39 @@ def main():
 
         for i, (row, col) in enumerate(layout):
             section_index = i + 1
+            
+            section_frame = ctk.CTkFrame(group_frame, fg_color="gray30", corner_radius=8)
+            section_frame.grid(row=row + 2, column=col, padx=5, pady=5, sticky="nsew")
+            
             label_text = section_names[group_number][section_index]
             label = ctk.CTkLabel(
-                group_frame, text=label_text, width=80, height=40, corner_radius=8,
-                fg_color="gray30", text_color="black", font=("Arial", 14)
+                section_frame, text=label_text, width=80, height=25,
+                fg_color="transparent", text_color="white", font=("Arial", 14, "bold")
             )
-            label.grid(row=row + 2, column=col, padx=5, pady=5, sticky="nsew")
+            label.pack(pady=(5, 0))
             labels.append(label)
-
+            
+            # Add location label
+            pos_index = (group_number - 1) * max_sections_per_group + (section_index - 1)
+            location_text = "Not defined yet"
+            if section_positions[pos_index] != (0, 0):
+                location_text = f"({section_positions[pos_index][0]}, {section_positions[pos_index][1]})"
+            
+            location_label = ctk.CTkLabel(
+                section_frame, text=location_text, width=80, height=15,
+                fg_color="transparent", text_color="gray70", font=("Arial", 10)
+            )
+            location_label.pack(pady=(0, 5))
+            
+            section_frame.bind("<Button-3>", lambda e, g=group_number, i=section_index: define_section(g, i))
+            section_frame.bind("<Button-1>", lambda e, g=group_number, i=section_index: open_rename_section(g, i))
             label.bind("<Button-3>", lambda e, g=group_number, i=section_index: define_section(g, i))
             label.bind("<Button-1>", lambda e, g=group_number, i=section_index: open_rename_section(g, i))
+            location_label.bind("<Button-3>", lambda e, g=group_number, i=section_index: define_section(g, i))
+            location_label.bind("<Button-1>", lambda e, g=group_number, i=section_index: open_rename_section(g, i))
+
+        reset_buttons.append(reset_button)
+        delete_buttons.append(delete_button)
 
     for i, toggle_button in enumerate(toggle_buttons, start=1):
         toggle_button.bind("<Button-3>", lambda e, i=i: open_rename_modal("Group", i))
@@ -536,6 +906,11 @@ def main():
     
     status_label = ctk.CTkLabel(status_bar, text="Ready")
     status_label.pack(side="left", padx=10)
+    
+    shortcuts_button = ctk.CTkButton(status_bar, text="Edit Shortcuts", 
+                                    width=100, height=20, 
+                                    command=open_shortcuts_dialog)
+    shortcuts_button.pack(side="left", padx=10)
     
     version_label = ctk.CTkLabel(status_bar, text="v1.0")
     version_label.pack(side="right", padx=10)
