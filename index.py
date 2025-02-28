@@ -360,7 +360,6 @@ def main():
             move_to_section(idx + 1, section_positions)
             progress_bar.set((i + 1) / total_sections)
             progress_window.update()
-            time.sleep(0.3)
         
         progress_window.destroy()
         
@@ -370,22 +369,30 @@ def main():
     def update_ui():
         for group_number in range(1, group_count + 1):
             if group_number <= len(toggle_buttons):
+                # Update group button text
                 button = toggle_buttons[group_number - 1]
                 button.configure(text=group_names[group_number])
                 
                 group_frame = button.master.master
                 
-                for i in range(1, group_section_counts[group_number] + 1):
-                    if i in section_names[group_number]:
-                        for label in labels:
-                            if label.master == group_frame:
-                                row = ((i - 1) // 2) + 2
-                                col = (i - 1) % 2
-                                
-                                label_info = label.grid_info()
-                                if label_info and int(label_info['row']) == row and int(label_info['column']) == col:
-                                    label.configure(text=section_names[group_number][i])
-                                    break
+                section_frames = [w for w in group_frame.winfo_children() 
+                                if isinstance(w, ctk.CTkFrame) 
+                                and w != button.master  # Exclude button frame
+                                and w != add_section_buttons[group_number - 1]]  # Exclude add section button
+                
+                for section_index in range(1, group_section_counts[group_number] + 1):
+                    if section_index in section_names[group_number]:
+                        row = ((section_index - 1) // 2) + 2
+                        col = (section_index - 1) % 2
+                        
+                        for frame in section_frames:
+                            grid_info = frame.grid_info()
+                            if (int(grid_info.get('row', -1)) == row and 
+                                int(grid_info.get('column', -1)) == col):
+                                for child in frame.winfo_children():
+                                    if isinstance(child, ctk.CTkLabel):
+                                        child.configure(text=section_names[group_number][section_index])
+                                        break
 
     def show_warning(message):
         messagebox.showinfo("Warning", message)
@@ -410,7 +417,6 @@ def main():
         for i in range(start_index, end_index):
             section_positions[i] = (0, 0)
         
-        # Update the location labels
         update_location_labels()
         
         print(f"Reset positions for Group {group_number}")
