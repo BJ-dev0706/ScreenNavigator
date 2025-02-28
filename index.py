@@ -5,6 +5,10 @@ import customtkinter as ctk
 import tkinter as tk
 from screeninfo import get_monitors
 import tkinter.messagebox as messagebox
+import threading
+import pystray
+from PIL import Image
+import sys
 
 def get_combined_screen_size():
     monitors = get_monitors()
@@ -142,6 +146,10 @@ def main():
         combined_width = sum(monitor.width for monitor in monitors)
         combined_height = max(monitor.height for monitor in monitors)
 
+        app.iconify()
+        
+        time.sleep(0.2)
+
         root = tk.Tk()
         root.geometry(f"{combined_width}x{combined_height}-0+0")
         
@@ -191,8 +199,13 @@ def main():
             section_positions[index] = (center_x, center_y)
             print(f"Section {section_number} in Group {group_number} defined at {section_positions[index]} (across all displays)")
             root.destroy()
+            app.deiconify()
 
-        root.bind("<Escape>", lambda e: root.destroy())
+        def on_escape(event):
+            root.destroy()
+            app.deiconify()
+
+        root.bind("<Escape>", on_escape)
         canvas.bind("<Button-1>", on_click)
         canvas.bind("<B1-Motion>", on_drag)
         canvas.bind("<ButtonRelease-1>", on_release)
@@ -234,6 +247,19 @@ def main():
 
     def show_warning(message):
         messagebox.showinfo("Warning", message)
+
+    def on_exit():
+        icon.stop()
+        app.quit()
+        sys.exit()
+
+    def toggle_window():
+        if app.state() == 'withdrawn':
+            app.deiconify()
+            app.lift()
+            app.focus_force()
+        else:
+            app.withdraw()
 
     ctk.set_appearance_mode("dark")
     ctk.set_default_color_theme("green")
@@ -299,6 +325,30 @@ def main():
 
     add_group_button = ctk.CTkButton(app, text="Add Group", command=add_group)
     add_group_button.pack(pady=5)
+
+    icon_image = Image.new('RGB', (64, 64), color='green')
+    menu = (
+        pystray.MenuItem("Show/Hide", toggle_window),
+        pystray.MenuItem("Exit", on_exit)
+    )
+    
+    icon = pystray.Icon(
+        "Screen Section Mover",
+        icon_image,
+        "Screen Section Mover",
+        menu
+    )
+    
+    icon.left_click_action = toggle_window
+
+    def on_closing():
+        app.withdraw()
+    
+    app.protocol('WM_DELETE_WINDOW', on_closing)
+
+    icon_thread = threading.Thread(target=icon.run)
+    icon_thread.daemon = True
+    icon_thread.start()
 
     app.mainloop()
 
