@@ -1,5 +1,7 @@
 # ScreenNavigator
 
+![ScreenNavigator](./assets/banner.png)
+
 ScreenNavigator is a powerful desktop utility that allows you to define and navigate between specific sections of your screen or multiple monitors with keyboard shortcuts.
 
 ## Features

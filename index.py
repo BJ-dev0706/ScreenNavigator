@@ -905,6 +905,27 @@ def main():
     version_label = ctk.CTkLabel(status_bar, text="v1.0")
     version_label.pack(side="right", padx=10)
 
+    splash = ctk.CTkToplevel()
+    splash.title("Loading...")
+    center_window(splash, 1000, 800)
+
+    banner_image = ctk.CTkImage(
+        light_image=Image.open("assets/splash.png").resize((1000, 800)),
+        dark_image=Image.open("assets/splash.png").resize((1000, 800)),
+        size=(1000, 800)
+    )
+    banner_label = ctk.CTkLabel(splash, image=banner_image, text="")
+    banner_label.pack(pady=5)
+    
+    splash.update()
+    time.sleep(2)
+    
+    splash.destroy()
+
+    app.deiconify()
+    app.lift()
+    app.focus_force()
+
     app.mainloop()
 
     keyboard.wait('esc')
