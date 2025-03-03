@@ -80,8 +80,3 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Screenshots
-
-![Main Interface](screenshots/main_interface.png)
-![Defining Sections](screenshots/defining_sections.png)
