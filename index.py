@@ -375,7 +375,6 @@ def main():
     def update_ui():
         for group_number in range(1, group_count + 1):
             if group_number <= len(toggle_buttons):
-                # Update group button text
                 button = toggle_buttons[group_number - 1]
                 button.configure(text=group_names[group_number])
                 
@@ -383,8 +382,8 @@ def main():
                 
                 section_frames = [w for w in group_frame.winfo_children() 
                                 if isinstance(w, ctk.CTkFrame) 
-                                and w != button.master  # Exclude button frame
-                                and w != add_section_buttons[group_number - 1]]  # Exclude add section button
+                                and w != button.master
+                                and w != add_section_buttons[group_number - 1]]
                 
                 for section_index in range(1, group_section_counts[group_number] + 1):
                     if section_index in section_names[group_number]:
@@ -513,7 +512,6 @@ def main():
             MessageboxShowInfo(f"Cannot delete the last section in Group {group_number}.\nDelete the entire group instead.")
             return
         
-        # Find the section frame to delete
         group_frame = toggle_buttons[group_number - 1].master.master
         row = ((section_index - 1) // 2) + 2
         col = (section_index - 1) % 2
@@ -529,25 +527,19 @@ def main():
                     break
         
         if section_frame_to_delete:
-            # Remove any labels in this frame from the labels list
             for child in section_frame_to_delete.winfo_children():
                 if isinstance(child, ctk.CTkLabel) and child in labels:
                     labels.remove(child)
             
-            # Destroy the frame
             section_frame_to_delete.destroy()
         
-        # Reset the position
         pos_index = (group_number - 1) * max_sections_per_group + (section_index - 1)
         section_positions[pos_index] = (0, 0)
         
-        # Remove from section_names
         del section_names[group_number][section_index]
         
-        # Decrease the section count
         group_section_counts[group_number] -= 1
         
-        # Reorganize the remaining sections
         reorganize_sections(group_number)
         
         print(f"Deleted Section {section_index} from Group {group_number}")
@@ -562,7 +554,6 @@ def main():
         group_frame = toggle_buttons[group_number - 1].master.master
         group_frame.destroy()
         
-        # Remove references to this group's buttons (so we don't try to configure them later)
         toggle_buttons.pop(group_number - 1)
         add_section_buttons.pop(group_number - 1)
         reset_buttons.pop(group_number - 1)
@@ -841,7 +832,6 @@ def main():
             label.pack(pady=(5, 0))
             labels.append(label)
             
-            # Add location label
             pos_index = (group_number - 1) * max_sections_per_group + (section_index - 1)
             location_text = "Not defined yet"
             if section_positions[pos_index] != (0, 0):
