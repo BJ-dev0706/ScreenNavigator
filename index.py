@@ -732,7 +732,7 @@ def main():
     menu_bar.add_cascade(label="Settings", menu=settings_menu)
     settings_menu.add_command(label="Edit Shortcuts", command=open_shortcuts_dialog)
 
-    main_frame = ctk.CTkFrame(app, corner_radius=15, fg_color="gray30")
+    main_frame = ctk.CTkFrame(app, corner_radius=15, fg_color="transparent")
     main_frame.pack(pady=5, padx=5, fill="both", expand=True)
 
     main_frame.grid_rowconfigure(0, weight=1)
