@@ -4,6 +4,20 @@
 
 ScreenNavigator is a powerful desktop utility that allows you to define and navigate between specific sections of your screen or multiple monitors with keyboard shortcuts.
 
+## Table of Contents
+
+- [Features](#features)
+- [Installation](#installation)
+- [Usage](#usage)
+  - [Defining Screen Sections](#defining-screen-sections)
+  - [Navigating Between Sections](#navigating-between-sections)
+  - [Customizing Groups and Sections](#customizing-groups-and-sections)
+- [Keyboard Shortcuts](#keyboard-shortcuts)
+- [System Tray](#system-tray)
+- [Contributing](#contributing)
+- [License](#license)
+- [Contact](#contact)
+
 ## Features
 
 - Create up to 8 groups with 8 sections each
@@ -29,18 +43,24 @@ ScreenNavigator is a powerful desktop utility that allows you to define and navi
 ### Setup
 
 1. Clone the repository:
-   ```
+   ```bash
    git clone https://github.com/BJ-dev0706/ScreenNavigator.git
    cd ScreenNavigator
    ```
 
-2. Install dependencies:
+2. (Optional) Create a virtual environment:
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows use `venv\Scripts\activate`
    ```
+
+3. Install dependencies:
+   ```bash
    pip install -r requirements.txt
    ```
 
-3. Run the application:
-   ```
+4. Run the application:
+   ```bash
    python index.py
    ```
 
@@ -77,8 +97,12 @@ The application minimizes to the system tray. You can:
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+## Contact
+
+For questions or support, please contact [kitchi734@gmail.com](mailto:kitchi734@gmail.com).
